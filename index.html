@@ -704,7 +704,10 @@ footer{background:var(--earth);padding:46px 20px 26px;}
     <div class="shipping-box">
       <div class="shipping-title">🚚 Estimasi Ongkir</div>
       <select class="city-select" id="citySelect" onchange="updateShipping()">
-        <option value="">-- Pilih Kecamatan --</option>
+        <option value="">-- Pilih Pengiriman --</option>
+        <optgroup label="🏠 Ambil Sendiri">
+          <option value="__pickup__:0">🏠 Ambil di Tempat (Gratis Ongkir)</option>
+        </optgroup>
         <optgroup label="📍 Dalam Area (Gratis / Murah)">
           <option value="Jatinangor:5000">Jatinangor (dalam kecamatan)</option>
           <option value="Cibeusi - Jatinangor:6000">Cibeusi · Jatinangor</option>
@@ -815,17 +818,24 @@ footer{background:var(--earth);padding:46px 20px 26px;}
 
 <script>
 // ═══════════════════════════════════════════════
-// DATA
+// GIST SYNC — ganti GIST_RAW_URL dengan Raw URL dari admin panel
 // ═══════════════════════════════════════════════
-const PROMO_CODES = {
-  'DUFARO50': { type:'percent', value:50, label:'DUFARO50 (-50%)' },
-  'DUFARO20': { type:'percent', value:20, label:'DUFARO20 (-20%)' },
-  'HEMAT10K': { type:'fixed',   value:10000, label:'HEMAT10K (-Rp10.000)' },
-  'GRATIS':   { type:'shipping', value:100,  label:'GRATIS (Gratis Ongkir!)' },
-};
+const GIST_RAW_URL = ''; // ← PASTE RAW URL DARI ADMIN PANEL DI SINI
 
-const products = [
-  // SKINCARE
+async function loadFromGist() {
+  if (!GIST_RAW_URL) return null;
+  try {
+    // cache bust supaya selalu fresh
+    const res = await fetch(GIST_RAW_URL + '?t=' + Date.now(), { cache: 'no-store' });
+    if (res.ok) return await res.json();
+  } catch(e) { console.warn('Gist fetch failed, pakai data lokal.', e); }
+  return null;
+}
+
+// ═══════════════════════════════════════════════
+// DATA DEFAULT
+// ═══════════════════════════════════════════════
+const DEFAULT_PRODUCTS = [
   {id:1, name:"Serum Vitamin C Brightening", category:"skincare", price:189000, oldPrice:240000, badge:"sale", emoji:"✨", desc:"Serum vitamin C 15% yang mencerahkan wajah, meratakan warna kulit, dan melawan radikal bebas."},
   {id:2, name:"Moisturizer Aloe & Hyaluronic", category:"skincare", price:155000, badge:"new", emoji:"💧", desc:"Pelembab ringan dengan aloe vera dan hyaluronic acid. Hidrasi 24 jam tanpa rasa berat."},
   {id:3, name:"Sunscreen SPF50 Mineral", category:"skincare", price:145000, oldPrice:175000, badge:"sale", emoji:"☀️", desc:"Sunscreen mineral ringan SPF50, bebas white cast, cocok untuk kulit sensitif."},
@@ -834,7 +844,6 @@ const products = [
   {id:6, name:"Eye Cream Peptide Complex", category:"skincare", price:210000, emoji:"👁️", desc:"Krim mata peptide untuk mengurangi lingkar hitam, kantung mata, dan garis halus."},
   {id:7, name:"Facial Oil Rosehip Organik", category:"skincare", price:175000, oldPrice:210000, badge:"sale", emoji:"🌸", desc:"Minyak rosehip organik murni untuk meregenerasi dan menutrisi kulit wajah."},
   {id:8, name:"Lip Balm Vanilla & Shea", category:"skincare", price:55000, badge:"new", emoji:"💋", desc:"Lip balm dengan vanilla dan shea butter, menjaga bibir lembut dan tidak pecah-pecah."},
-  // MAKANAN
   {id:9, name:"Granola Oat Madu & Kacang", category:"makanan", price:75000, badge:"new", emoji:"🥣", desc:"Granola renyah dari oat premium, madu asli, dan kacang-kacangan. Sarapan sehat!"},
   {id:10, name:"Kopi Arabika Toraja Blend", category:"makanan", price:89000, emoji:"☕", desc:"Arabika dari Toraja, medium roast. Aroma kaya dengan after taste cokelat."},
   {id:11, name:"Sambal Matah Bali Original", category:"makanan", price:45000, emoji:"🌶️", desc:"Sambal matah autentik khas Bali, bahan segar tanpa pengawet. Pedas harum!"},
@@ -843,7 +852,6 @@ const products = [
   {id:14, name:"Teh Herbal Jahe & Lemon", category:"makanan", price:65000, emoji:"🍵", desc:"Blend jahe, lemon, dan madu. Menghangatkan dan meningkatkan imunitas."},
   {id:15, name:"Selai Kacang Natural Crunchy", category:"makanan", price:58000, emoji:"🥜", desc:"100% alami tanpa gula/garam/minyak tambahan. Kacang tanah pilihan tekstur crunchy."},
   {id:16, name:"Dark Chocolate 70% Kakao", category:"makanan", price:48000, oldPrice:60000, badge:"sale", emoji:"🍫", desc:"Cokelat hitam 70% kakao asli Indonesia. Kaya antioksidan, rasa intens."},
-  // BAJU
   {id:17, name:"Kemeja Linen Natural Pria", category:"baju", price:215000, badge:"new", emoji:"👔", desc:"Kemeja linen premium slim fit. Breathable, nyaman sepanjang hari."},
   {id:18, name:"Dress Midi Floral Wanita", category:"baju", price:285000, oldPrice:350000, badge:"sale", emoji:"👗", desc:"Dress midi motif bunga lembut, bahan rayon viscose yang jatuh sempurna."},
   {id:19, name:"Kaos Oversized Cotton 30s", category:"baju", price:125000, emoji:"👕", desc:"Cotton combed 30s lembut dan adem. Desain minimal pigment dye vintage."},
@@ -853,28 +861,40 @@ const products = [
   {id:23, name:"Rok Lilit Batik Jumputan", category:"baju", price:165000, oldPrice:200000, badge:"sale", emoji:"🌀", desc:"Motif jumputan khas Palembang. Multifungsi sebagai sarung, rok, atau selendang."},
   {id:24, name:"Jaket Bomber Sage Green", category:"baju", price:389000, badge:"new", emoji:"🧥", desc:"Inner fleece hangat, warna sage green. Desain unisex cocok pria & wanita."},
 ];
-
-const bundles = [
-  {id:101, name:"Starter Skincare Kit", category:"bundle", badge:"bundle", emoji:"🧴", price:350000, oldPrice:449000,
-   items:["Serum Vitamin C", "Toner Rose Water", "Sunscreen SPF50"],
-   desc:"Paket pemula skincare lengkap! Serum + Toner + Sunscreen. Hemat Rp99.000 dibanding beli satuan."},
-  {id:102, name:"Glow Up Bundle", category:"bundle", badge:"bundle", emoji:"✨", price:420000, oldPrice:534000,
-   items:["Moisturizer Aloe", "Facial Oil Rosehip", "Eye Cream Peptide", "Lip Balm Vanilla"],
-   desc:"Paket glowing lengkap dari pagi sampai malam. Hemat Rp114.000!"},
-  {id:103, name:"Healthy Snack Box", category:"bundle", badge:"bundle", emoji:"🎁", price:185000, oldPrice:238000,
-   items:["Granola Oat Madu", "Keripik Tempe Rempah", "Selai Kacang Crunchy", "Teh Herbal Jahe"],
-   desc:"Box camilan sehat favorit! 4 produk makanan premium hemat Rp53.000."},
-  {id:104, name:"Casual OOTD Set", category:"bundle", badge:"bundle", emoji:"👚", price:380000, oldPrice:465000,
-   items:["Kaos Oversized Cotton", "Celana Kulot Loose Fit"],
-   desc:"Combo kaos oversized + kulot, perfect casual look. Hemat Rp85.000!"},
+const DEFAULT_BUNDLES = [
+  {id:101, name:"Starter Skincare Kit", category:"bundle", badge:"bundle", emoji:"🧴", price:350000, oldPrice:449000, items:["Serum Vitamin C","Toner Rose Water","Sunscreen SPF50"], desc:"Paket pemula skincare lengkap! Serum + Toner + Sunscreen. Hemat Rp99.000 dibanding beli satuan."},
+  {id:102, name:"Glow Up Bundle", category:"bundle", badge:"bundle", emoji:"✨", price:420000, oldPrice:534000, items:["Moisturizer Aloe","Facial Oil Rosehip","Eye Cream Peptide","Lip Balm Vanilla"], desc:"Paket glowing lengkap dari pagi sampai malam. Hemat Rp114.000!"},
+  {id:103, name:"Healthy Snack Box", category:"bundle", badge:"bundle", emoji:"🎁", price:185000, oldPrice:238000, items:["Granola Oat Madu","Keripik Tempe Rempah","Selai Kacang Crunchy","Teh Herbal Jahe"], desc:"Box camilan sehat favorit! 4 produk makanan premium hemat Rp53.000."},
+  {id:104, name:"Casual OOTD Set", category:"bundle", badge:"bundle", emoji:"👚", price:380000, oldPrice:465000, items:["Kaos Oversized Cotton","Celana Kulot Loose Fit"], desc:"Combo kaos oversized + kulot, perfect casual look. Hemat Rp85.000!"},
 ];
+const DEFAULT_PROMOS = {
+  'DUFARO50':{ type:'percent', value:50, label:'DUFARO50 (-50%)' },
+  'DUFARO20':{ type:'percent', value:20, label:'DUFARO20 (-20%)' },
+  'HEMAT10K':{ type:'fixed',   value:10000, label:'HEMAT10K (-Rp10.000)' },
+  'GRATIS':  { type:'shipping',value:100,  label:'GRATIS (Gratis Ongkir!)' },
+};
+
+// Baca dari localStorage admin (key: df_p, df_b, df_pr) — sama persis dengan admin panel
+function loadLS(key, fallback) {
+  try { const d = localStorage.getItem(key); return d ? JSON.parse(d) : fallback; }
+  catch { return fallback; }
+}
+
+const products = loadLS('df_p', DEFAULT_PRODUCTS);
+const bundles  = loadLS('df_b', DEFAULT_BUNDLES);
+
+// Promo
+const rawPromos = loadLS('df_pr', null);
+const PROMO_CODES = rawPromos
+  ? Object.fromEntries(Object.entries(rawPromos).map(([k,v]) => [k, {...v, label:`${k} (${v.type==='percent'?'-'+v.value+'%':v.type==='fixed'?'-Rp'+Number(v.value).toLocaleString('id-ID'):'Gratis Ongkir!'})`}]))
+  : {...DEFAULT_PROMOS};
 
 // ═══════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════
-let cart = []; // [{id, name, category, price, emoji, qty}]
+let cart = [];
 let activeFilter = 'semua';
-let activeDiscount = null; // {code, type, value, label}
+let activeDiscount = null;
 let shippingCost = 0;
 let shippingCity = '';
 
@@ -888,17 +908,20 @@ function renderCards(list, containerId) {
   document.getElementById(containerId).innerHTML = list.map(p => {
     const isBundle = p.category === 'bundle';
     const save = p.oldPrice ? p.oldPrice - p.price : 0;
+    const imgHtml = p.img
+      ? `<img src="${p.img}" alt="${p.name}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;">`
+      : `<div class="emoji-inner">${p.emoji}</div>`;
     return `
     <div class="card ${isBundle?'bundle-card':''}" onclick="openModal(${p.id})">
-      <div class="card-img">
+      <div class="card-img" style="position:relative;">
         ${p.badge ? `<div class="badge b-${p.badge}">${p.badge==='new'?'✨ Baru':p.badge==='sale'?'🔥 Sale':'🎁 Bundle'}</div>` : ''}
         <button class="heart-btn" onclick="toggleHeart(event,this)">🤍</button>
-        <div class="emoji-inner">${p.emoji}</div>
+        ${imgHtml}
       </div>
       <div class="card-body">
         <div class="card-cat">${isBundle ? '🎁 Bundle Hemat' : p.category}</div>
         <div class="card-name">${p.name}</div>
-        ${isBundle ? `<div class="bundle-items">${p.items.map(i=>`<span>${i}</span>`).join('')}</div>` : ''}
+        ${isBundle && p.items ? `<div class="bundle-items">${p.items.map(i=>`<span>${i}</span>`).join('')}</div>` : ''}
         <div class="card-prices">
           <div class="card-price">${fmt(p.price)}</div>
           ${p.oldPrice ? `<div class="card-old">${fmt(p.oldPrice)}</div>` : ''}
@@ -1040,13 +1063,22 @@ function removeItem(id) {
 // ═══════════════════════════════════════════════
 function updateShipping() {
   const sel = document.getElementById('citySelect').value;
-  if (!sel) { shippingCost = 0; shippingCity = ''; document.getElementById('shippingResult').style.display='none'; document.getElementById('shippingNote').style.display='none'; updateSummary(); return; }
+  if (!sel) {
+    shippingCost = 0; shippingCity = '';
+    document.getElementById('shippingResult').style.display='none';
+    document.getElementById('shippingNote').style.display='none';
+    updateSummary(); return;
+  }
   const [city, cost] = sel.split(':');
-  shippingCity = city;
+  const isPickup = city === '__pickup__';
+  shippingCity = isPickup ? 'Ambil di Tempat' : city;
   shippingCost = parseInt(cost);
-  document.getElementById('shippingCity').textContent = '📍 ' + city;
-  document.getElementById('shippingPrice').textContent = fmt(shippingCost);
+  document.getElementById('shippingCity').textContent = isPickup ? '🏠 Ambil di Tempat' : '📍 ' + city;
+  document.getElementById('shippingPrice').textContent = shippingCost === 0 ? '🎉 GRATIS' : fmt(shippingCost);
   document.getElementById('shippingResult').style.display = 'flex';
+  document.getElementById('shippingNote').textContent = isPickup
+    ? '📍 Asrama Tb 1 ITB Jatinangor, Jl. Raya Jatinangor · Hubungi seller untuk jadwal ambil~'
+    : '🛵 Kurir/ojol lokal • Jatinangor, Tanjungsari & sekitar Sumedang~';
   document.getElementById('shippingNote').style.display = 'block';
   updateSummary();
 }
@@ -1148,12 +1180,18 @@ function doCheckout() {
 
   // Build message
   const itemLines = cart.map(i => `• ${i.emoji} ${i.name} x${i.qty} = ${fmt(i.price * i.qty)}`).join('\n');
+  const isPickup = shippingCity === 'Ambil di Tempat';
 
   let msg = `Halo Kak Najla! 🌿🛍️\n\nSaya mau order dari Dufaro Store:\n\n`;
   msg += itemLines;
   msg += `\n\n──────────────────\n`;
   msg += `📦 Subtotal     : ${fmt(subtotal)}\n`;
-  msg += `🛵 Ongkir (${shippingCity}) : ${fmt(shippingCost)}\n`;
+  if (isPickup) {
+    msg += `🏠 Pengiriman   : Ambil di Tempat (GRATIS)\n`;
+    msg += `📍 Lokasi       : Asrama Tb 1 ITB Jatinangor\n`;
+  } else {
+    msg += `🛵 Ongkir (${shippingCity}) : ${fmt(shippingCost)}\n`;
+  }
   if (activeDiscount && discountAmount > 0) msg += `🎟️ Diskon (${activeDiscount.code}) : -${fmt(discountAmount)}\n`;
   if (activeDiscount && activeDiscount.type === 'shipping') msg += `🎟️ Diskon (${activeDiscount.code}) : Gratis Ongkir!\n`;
   msg += `──────────────────\n`;
@@ -1252,7 +1290,16 @@ function closeCheckoutPopup() {
 // ═══════════════════════════════════════════════
 function openModal(id) {
   const p = allProducts.find(x => x.id === id);
-  document.getElementById('mEmoji').textContent = p.emoji;
+  const mHero = document.getElementById('mEmoji');
+  if (p.img) {
+    mHero.style.backgroundImage = `url('${p.img}')`;
+    mHero.style.backgroundSize = 'cover';
+    mHero.style.backgroundPosition = 'center';
+    mHero.textContent = '';
+  } else {
+    mHero.style.backgroundImage = '';
+    mHero.textContent = p.emoji;
+  }
   document.getElementById('mCat').textContent = p.category === 'bundle' ? '🎁 BUNDLE HEMAT' : p.category.toUpperCase();
   document.getElementById('mName').textContent = p.name;
   document.getElementById('mDesc').textContent = p.desc;
@@ -1311,10 +1358,29 @@ window.addEventListener('scroll', () => {
 });
 
 // ═══════════════════════════════════════════════
-// INIT
+// INIT — load Gist dulu, fallback ke localStorage/default
 // ═══════════════════════════════════════════════
-filterProds();
-renderCards(bundles, 'bundleGrid');
+async function initStore() {
+  let gistData = null;
+  if (GIST_RAW_URL) gistData = await loadFromGist();
+
+  if (gistData) {
+    if (gistData.products) products.splice(0, products.length, ...gistData.products);
+    if (gistData.bundles)  bundles.splice(0, bundles.length, ...gistData.bundles);
+    if (gistData.promos) {
+      Object.keys(PROMO_CODES).forEach(k => delete PROMO_CODES[k]);
+      Object.entries(gistData.promos).forEach(([k,v]) => {
+        PROMO_CODES[k] = {...v, label:`${k} (${v.type==='percent'?'-'+v.value+'%':v.type==='fixed'?'-Rp'+Number(v.value).toLocaleString('id-ID'):'Gratis Ongkir!'})`};
+      });
+    }
+    allProducts.splice(0, allProducts.length, ...products, ...bundles);
+  }
+
+  filterProds();
+  renderCards(bundles, 'bundleGrid');
+}
+
+initStore();
 </script>
 </body>
 </html>
